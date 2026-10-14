@@ -1,0 +1,107 @@
+USE Ventas_Tech_DB
+
+-- =====================================================
+-- Consulta 1: Vista base enriquecida del negocio
+-- Combina ventas con clientes, productos y categorías
+-- =====================================================
+
+SELECT 
+    v.id_venta,
+    v.fecha_venta,
+    c.id_cliente,
+    c.nombre AS nombre_cliente,
+    c.email AS email_cliente,
+    p.id_producto,
+    p.nombre_producto,
+    cat.nombre_categoria,
+    v.cantidad,
+    p.precio AS precio_unitario,
+    (v.cantidad * p.precio) AS total_venta
+FROM ventas v
+INNER JOIN clientes c 
+    ON v.id_cliente = c.id_cliente
+INNER JOIN productos p 
+    ON v.id_producto = p.id_producto
+INNER JOIN categorias cat 
+    ON p.id_categoria = cat.id_categoria;
+
+
+-- =====================================================
+-- Consulta 2: Clientes sin compras registradas (LEFT JOIN)
+-- Identifica clientes que aún no realizaron transacciones
+-- =====================================================
+
+SELECT 
+    c.id_cliente,
+    c.nombre AS nombre_cliente,
+    c.email,
+    c.fecha_registro
+FROM clientes c
+LEFT JOIN ventas v 
+    ON c.id_cliente = v.id_cliente
+WHERE v.id_venta IS NULL;
+
+SELECT 
+    c.id_cliente,
+    c.nombre,
+    COUNT(v.id_venta) AS total_compras
+FROM clientes c
+LEFT JOIN ventas v 
+    ON c.id_cliente = v.id_cliente
+GROUP BY c.id_cliente, c.nombre;
+
+INSERT INTO clientes (id_cliente, nombre, email, fecha_registro)
+VALUES (999, 'Cliente Sin Compras', 'sincompras@test.com', '2024-05-01');
+
+
+-- =====================================================
+-- Consulta 3: Productos sin ventas registradas (LEFT JOIN)
+-- Identifica artículos del catálogo sin movimiento
+-- =====================================================
+
+SELECT 
+    p.id_producto,
+    p.nombre_producto,
+    cat.nombre_categoria,
+    p.precio
+FROM productos p
+INNER JOIN categorias cat 
+    ON p.id_categoria = cat.id_categoria
+LEFT JOIN ventas v 
+    ON p.id_producto = v.id_producto
+WHERE v.id_venta IS NULL;
+
+INSERT INTO productos (id_producto, nombre_producto, id_categoria, precio)
+VALUES (999, 'Teclado Mecánico RGB Test', 1, 8500.00);
+
+
+-- =====================================================
+-- Consulta 4: Consolidado por canal (UNION ALL)
+-- Clasifica ventas en canales ficticios y totaliza
+-- =====================================================
+
+SELECT DISTINCT id_cliente 
+FROM ventas 
+ORDER BY id_cliente;
+
+SELECT 
+    canal, 
+    SUM(total) AS total_canal
+FROM (
+    -- Subconsulta 1: Canal Online (clientes web)
+    SELECT 
+        v.id_venta,
+        (v.cantidad * v.precio_unitario) AS total, 
+        'Online' AS canal
+    FROM ventas v
+    WHERE v.id_cliente IN (1, 2, 3)
+    UNION ALL
+    -- Subconsulta 2: Canal Presencial (clientes en tienda)
+    SELECT 
+        v.id_venta,
+        (v.cantidad * v.precio_unitario) AS total, 
+        'Presencial' AS canal
+    FROM ventas v
+    WHERE v.id_cliente NOT IN (1, 2, 3)
+) AS consolidado
+GROUP BY canal;
